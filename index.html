@@ -1,207 +1,119 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tradeflow — Cuaderno de trading</title>
+<meta name="description" content="Tradeflow: registra tus operaciones, revisa tus estadísticas por cuenta y analiza tu curva de resultados. Disponible como app de escritorio para Windows o como app web." />
 
-    <title>Tradeflow — Diario de Trading</title>
-    <link rel="icon" type="image/png" href="logo.png">
+<!-- ============================================================
+     CONFIGURA ESTOS DOS ENLACES ANTES DE PUBLICAR:
+     1) DESCARGA_URL  -> tu release de GitHub con el .exe
+     2) WEBAPP_URL    -> donde tengas desplegada la app web
+     (búscalos más abajo, están marcados con "EDITA AQUÍ")
+     ============================================================ -->
 
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            background: #0b0f14;
-            color: #ffffff;
-            line-height: 1.6;
-        }
-
-        header {
-            padding: 25px 8%;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #202731;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .brand img {
-            width: 28px;
-            height: 28px;
-            border-radius: 6px;
-        }
-
-        .logo {
-            font-size: 24px;
-            font-weight: bold;
-        }
-
-        nav a {
-            color: #aaa;
-            text-decoration: none;
-            margin-left: 25px;
-        }
-
-        nav a:hover {
-            color: white;
-        }
-
-        .hero {
-            max-width: 1000px;
-            margin: 100px auto;
-            padding: 0 25px;
-            text-align: center;
-        }
-
-        .hero h1 {
-            font-size: 58px;
-            margin-bottom: 20px;
-        }
-
-        .hero p {
-            color: #aab2bd;
-            font-size: 20px;
-            max-width: 700px;
-            margin: auto;
-        }
-
-        .button {
-            display: inline-block;
-            margin-top: 35px;
-            padding: 14px 28px;
-            background: white;
-            color: #0b0f14;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: bold;
-        }
-
-        .features {
-            max-width: 1000px;
-            margin: 80px auto;
-            padding: 0 25px;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-        }
-
-        .card {
-            background: #111720;
-            border: 1px solid #202731;
-            border-radius: 12px;
-            padding: 25px;
-        }
-
-        .card h3 {
-            margin-bottom: 10px;
-        }
-
-        .card p {
-            color: #9da6b2;
-        }
-
-        footer {
-            margin-top: 100px;
-            padding: 30px;
-            text-align: center;
-            border-top: 1px solid #202731;
-            color: #777;
-        }
-
-        footer a {
-            color: #aaa;
-        }
-
-        @media (max-width: 700px) {
-            .hero h1 {
-                font-size: 40px;
-            }
-
-            .features {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%230b0d12'/%3E%3Cpath d='M4 16l4-5 3 3 5-7 4 5' stroke='%234f7cff' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
 </head>
-
 <body>
 
-<header>
-    <div class="brand">
-        <img src="logo.png" alt="Logotipo de Tradeflow">
-        <div class="logo">Tradeflow</div>
+  <!-- Cinta de mercado (decorativa) -->
+  <div class="ticker" aria-hidden="true">
+    <div class="ticker-track">
+      <span class="ticker-item bull">EUR/USD <b>1.0873</b> ▲ 0.12%</span>
+      <span class="ticker-item bear">XAU/USD <b>2 421.6</b> ▼ 0.34%</span>
+      <span class="ticker-item bull">US30 <b>39 812</b> ▲ 0.21%</span>
+      <span class="ticker-item bear">GBP/USD <b>1.2694</b> ▼ 0.08%</span>
+      <span class="ticker-item bull">NAS100 <b>18 340</b> ▲ 0.47%</span>
+      <span class="ticker-item bull">EUR/USD <b>1.0873</b> ▲ 0.12%</span>
+      <span class="ticker-item bear">XAU/USD <b>2 421.6</b> ▼ 0.34%</span>
+      <span class="ticker-item bull">US30 <b>39 812</b> ▲ 0.21%</span>
+      <span class="ticker-item bear">GBP/USD <b>1.2694</b> ▼ 0.08%</span>
+      <span class="ticker-item bull">NAS100 <b>18 340</b> ▲ 0.47%</span>
     </div>
+  </div>
 
-    <nav>
-        <a href="#features">Características</a>
-        <a href="privacy.html">Privacidad</a>
-    </nav>
-</header>
+  <header class="hero">
+    <div class="wrap">
+      <p class="kicker">Cuaderno de trading personal</p>
+      <h1 class="wordmark">Tradeflow</h1>
+      <p class="tagline">Registra cada operación, organiza tus cuentas de bróker y mira tu curva de resultados sin salir de tu propio historial.</p>
 
-<section class="hero">
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/TU-USUARIO/TU-REPO/releases/latest">
+          <!-- EDITA AQUÍ: pon tu usuario/repo de GitHub -->
+          Descargar para Windows
+        </a>
+        <a class="btn btn-secondary" href="https://TU-USUARIO.github.io/TU-REPO-WEB/">
+          <!-- EDITA AQUÍ: pon la URL donde despliegues la app web -->
+          Abrir la app web
+        </a>
+      </div>
 
-    <h1>Opera de forma más inteligente con Tradeflow.</h1>
-
-    <p>
-        Tradeflow es un diario de trading diseñado para ayudar a los
-        traders a registrar, analizar y mejorar su rendimiento operativo.
-    </p>
-
-    <a class="button" href="https://github.com/webdropping2024-ctrl/tradeflowwebsite/releases/download/v1.0.3/Tradeflow-Setup-1.0.3.exe">
-        Descubre Tradeflow_(beta)
-    </a>
-
-</section>
-
-<section class="features" id="#features">
-
-    <div class="card">
-        <h3>Diario de Trading</h3>
-        <p>
-            Registra tus operaciones y mantén toda tu actividad
-            de trading organizada en un solo lugar.
-        </p>
+      <div class="cta-captions">
+        <span>Instalador .exe · pesa unos MB · funciona sin conexión</span>
+        <span>Sin instalación · accede desde cualquier navegador</span>
+      </div>
     </div>
+  </header>
 
-    <div class="card">
-        <h3>Análisis de Rendimiento</h3>
-        <p>
-            Analiza tus resultados e identifica patrones en tu
-            rendimiento como trader.
-        </p>
-    </div>
+  <main>
+    <section class="panels wrap">
+      <article class="panel">
+        <h2>Cuentas por bróker</h2>
+        <p>Separa tus operaciones por cada cuenta que operes: real, demo, fondeo o backtesting, cada una con su propio capital inicial.</p>
+      </article>
+      <article class="panel">
+        <h2>Historial en tu equipo</h2>
+        <p>Tus operaciones se guardan localmente, cuenta por cuenta, sin depender de un servicio externo para consultarlas.</p>
+      </article>
+      <article class="panel">
+        <h2>Estadísticas por sesión</h2>
+        <p>Revisa resultados agrupados por par, dirección y periodo para ver qué configuraciones te están funcionando de verdad.</p>
+      </article>
+    </section>
 
-    <div class="card">
-        <h3>Mejora tu Trading</h3>
-        <p>
-            Crea mejores hábitos revisando tus operaciones y
-            aprendiendo de tus resultados.
-        </p>
-    </div>
+    <section class="preview wrap">
+      <div class="preview-panel" role="img" aria-label="Vista previa de una tabla de operaciones con pares, dirección y resultado">
+        <div class="preview-head">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <span class="preview-title">Operaciones — Cuenta real</span>
+        </div>
+        <div class="preview-row preview-row-head">
+          <span>Par</span><span>Dirección</span><span>Entrada</span><span>Resultado</span>
+        </div>
+        <div class="preview-row">
+          <span>XAU/USD</span><span class="pill pill-long">Long</span><span>2 398.10</span><span class="num bull">+184.30</span>
+        </div>
+        <div class="preview-row">
+          <span>EUR/USD</span><span class="pill pill-short">Short</span><span>1.0912</span><span class="num bear">−42.60</span>
+        </div>
+        <div class="preview-row">
+          <span>US30</span><span class="pill pill-long">Long</span><span>39 210</span><span class="num bull">+96.00</span>
+        </div>
+      </div>
+    </section>
 
-</section>
+    <section class="requirements wrap">
+      <div class="req-col">
+        <h3>App de escritorio</h3>
+        <p>Windows 10 u 11. Se instala en segundos y arranca su propio servidor local para guardar tus datos en tu equipo.</p>
+      </div>
+      <div class="req-col">
+        <h3>App web</h3>
+        <p>Cualquier navegador moderno, en escritorio o móvil. Ideal para consultar tu historial cuando no tienes tu equipo a mano.</p>
+      </div>
+    </section>
+  </main>
 
-<footer>
-
-    <p>
-        © 2026 Tradeflow. Todos los derechos reservados.
-    </p>
-
-    <p>
-        <a href="privacy.html">Política de Privacidad</a>
-    </p>
-
-</footer>
+  <footer class="wrap">
+    <span>Tradeflow</span>
+    <a href="https://github.com/TU-USUARIO/TU-REPO">Código fuente</a>
+  </footer>
 
 </body>
 </html>
