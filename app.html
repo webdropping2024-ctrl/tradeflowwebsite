@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tradeflow — App web</title>
+<meta name="description" content="Registra tus operaciones y consulta tus estadísticas de trading directamente en el navegador." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%230b0d12'/%3E%3Cpath d='M4 16l4-5 3 3 5-7 4 5' stroke='%234f7cff' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <header class="app-header">
+    <a class="app-logo" href="index.html">Tradeflow</a>
+    <div class="app-header-actions">
+      <button class="btn btn-secondary" id="export-btn" type="button">Exportar datos</button>
+      <button class="btn btn-secondary" id="import-btn" type="button">Importar datos</button>
+      <input type="file" id="import-input" accept="application/json" style="display:none" />
+    </div>
+  </header>
+
+  <main class="app-main">
+    <p class="storage-note">Tus operaciones se guardan solo en este navegador (almacenamiento local), no se envían a ningún servidor. Usa <strong>Exportar datos</strong> de vez en cuando para tener una copia de seguridad. Más detalle en la <a href="privacy.html">política de privacidad</a>.</p>
+
+    <section class="summary" id="summary">
+      <div class="stat">
+        <span class="stat-label">P&amp;L Total</span>
+        <span class="stat-value" id="stat-pnl">$0.00</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Operaciones</span>
+        <span class="stat-value" id="stat-count">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Win Rate</span>
+        <span class="stat-value" id="stat-winrate">0%</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Ganancia promedio</span>
+        <span class="stat-value" id="stat-avgwin">$0.00</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Pérdida promedio</span>
+        <span class="stat-value" id="stat-avgloss">$0.00</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Nueva operación</h2>
+      <form id="trade-form">
+        <div class="form-row">
+          <div class="field">
+            <label>Par / símbolo</label>
+            <input type="text" id="symbol" placeholder="XAU/USD" required />
+          </div>
+          <div class="field">
+            <label>Dirección</label>
+            <select id="direction">
+              <option value="long">Long</option>
+              <option value="short">Short</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Fecha</label>
+            <input type="date" id="date" required />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label>Precio entrada</label>
+            <input type="number" step="0.01" id="entry" required />
+          </div>
+          <div class="field">
+            <label>Precio salida</label>
+            <input type="number" step="0.01" id="exit" required />
+          </div>
+          <div class="field">
+            <label>Cantidad</label>
+            <input type="number" step="0.01" id="quantity" required />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field field-wide">
+            <label>Notas</label>
+            <input type="text" id="notes" placeholder="Setup, motivo de entrada/salida, lecciones..." />
+          </div>
+        </div>
+        <button type="submit" class="btn-submit">Agregar operación</button>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Historial</h2>
+      <div class="table-wrap">
+        <table class="journal-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Par</th>
+              <th>Dir.</th>
+              <th>Entrada</th>
+              <th>Salida</th>
+              <th>Cant.</th>
+              <th>Resultado</th>
+              <th>Notas</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="trades-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+<script>
+  const STORAGE_KEY = 'tradeflow-trades';
+
+  const form = document.getElementById('trade-form');
+  const tbody = document.getElementById('trades-body');
+
+  function loadTrades() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (err) {
+      console.error('Error leyendo trades:', err);
+      return [];
+    }
+  }
+
+  function saveTrades(trades) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(trades, null, 2));
+  }
+
+  function addTrade(trade) {
+    const trades = loadTrades();
+    trade.id = Date.now().toString();
+    trades.push(trade);
+    saveTrades(trades);
+    return trades;
+  }
+
+  function deleteTrade(id) {
+    let trades = loadTrades();
+    trades = trades.filter(t => t.id !== id);
+    saveTrades(trades);
+    return trades;
+  }
+
+  function calcPnl(trade) {
+    const diff = trade.direction === 'long'
+      ? (trade.exit - trade.entry)
+      : (trade.entry - trade.exit);
+    return diff * trade.quantity;
+  }
+
+  function formatMoney(n) {
+    const sign = n < 0 ? '-' : '';
+    return `${sign}$${Math.abs(n).toFixed(2)}`;
+  }
+
+  function renderStats(trades) {
+    const pnls = trades.map(calcPnl);
+    const total = pnls.reduce((a, b) => a + b, 0);
+    const wins = pnls.filter(p => p > 0);
+    const losses = pnls.filter(p => p < 0);
+    const winRate = trades.length ? (wins.length / trades.length) * 100 : 0;
+    const avgWin = wins.length ? wins.reduce((a, b) => a + b, 0) / wins.length : 0;
+    const avgLoss = losses.length ? losses.reduce((a, b) => a + b, 0) / losses.length : 0;
+
+    const pnlEl = document.getElementById('stat-pnl');
+    pnlEl.textContent = formatMoney(total);
+    pnlEl.className = 'stat-value ' + (total >= 0 ? 'bull' : 'bear');
+    document.getElementById('stat-count').textContent = trades.length;
+    document.getElementById('stat-winrate').textContent = winRate.toFixed(1) + '%';
+    document.getElementById('stat-avgwin').textContent = formatMoney(avgWin);
+    document.getElementById('stat-avgloss').textContent = formatMoney(avgLoss);
+  }
+
+  function renderTable(trades) {
+    tbody.innerHTML = '';
+
+    if (trades.length === 0) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="9">Todavía no hay operaciones registradas</td></tr>';
+      return;
+    }
+
+    const sorted = [...trades].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    for (const trade of sorted) {
+      const pnl = calcPnl(trade);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${trade.date}</td>
+        <td>${trade.symbol.toUpperCase()}</td>
+        <td><span class="pill ${trade.direction === 'long' ? 'pill-long' : 'pill-short'}">${trade.direction === 'long' ? 'Long' : 'Short'}</span></td>
+        <td>${trade.entry}</td>
+        <td>${trade.exit}</td>
+        <td>${trade.quantity}</td>
+        <td class="num ${pnl >= 0 ? 'bull' : 'bear'}">${formatMoney(pnl)}</td>
+        <td>${trade.notes || ''}</td>
+        <td><button class="delete-btn" data-id="${trade.id}">✕</button></td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.target.getAttribute('data-id');
+        const updated = deleteTrade(id);
+        renderAll(updated);
+      });
+    });
+  }
+
+  function renderAll(trades) {
+    renderStats(trades);
+    renderTable(trades);
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    const trade = {
+      symbol: escapeHtml(document.getElementById('symbol').value.trim()),
+      direction: document.getElementById('direction').value,
+      date: document.getElementById('date').value,
+      entry: parseFloat(document.getElementById('entry').value),
+      exit: parseFloat(document.getElementById('exit').value),
+      quantity: parseFloat(document.getElementById('quantity').value),
+      notes: escapeHtml(document.getElementById('notes').value.trim())
+    };
+
+    const updated = addTrade(trade);
+    renderAll(updated);
+    form.reset();
+  });
+
+  document.getElementById('export-btn').addEventListener('click', () => {
+    const trades = loadTrades();
+    const blob = new Blob([JSON.stringify(trades, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tradeflow-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  const importInput = document.getElementById('import-input');
+  document.getElementById('import-btn').addEventListener('click', () => importInput.click());
+
+  importInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const imported = JSON.parse(reader.result);
+        if (!Array.isArray(imported)) throw new Error('Formato inválido');
+        saveTrades(imported);
+        renderAll(imported);
+        alert('Datos importados correctamente.');
+      } catch (err) {
+        alert('No se pudo importar el archivo: ' + err.message);
+      }
+    };
+    reader.readAsText(file);
+    importInput.value = '';
+  });
+
+  renderAll(loadTrades());
+</script>
+</body>
+</html>
