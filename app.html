@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tradeflow — App web</title>
+<meta name="description" content="Registra tus operaciones, organiza tus cuentas de bróker y consulta tu calendario y estadísticas directamente en el navegador." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%230b0d12'/%3E%3Cpath d='M4 16l4-5 3 3 5-7 4 5' stroke='%234f7cff' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ---------- Onboarding: primera cuenta de bróker ---------- -->
+  <div class="auth-overlay" id="onboarding-overlay">
+    <div class="auth-box">
+      <div class="auth-title">Tradeflow</div>
+      <p class="auth-hint">
+        Crea tu primera cuenta de bróker para empezar: real, demo, fondeo o backtesting,
+        con su propio capital inicial. Podrás añadir más cuentas después. Todo se guarda
+        en este navegador, no se envía a ningún servidor.
+      </p>
+      <form id="onboarding-form">
+        <div class="field">
+          <label>Nombre de la cuenta</label>
+          <input type="text" id="onboarding-name" placeholder="Ej. IBKR real" required />
+        </div>
+        <div class="field">
+          <label>Capital inicial</label>
+          <input type="number" id="onboarding-capital" step="0.01" placeholder="0.00" required />
+        </div>
+        <p class="auth-error" id="onboarding-error" hidden></p>
+        <button type="submit">Crear cuenta y empezar</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ---------- Modal: añadir una nueva cuenta de bróker ---------- -->
+  <div class="modal-overlay" id="new-account-modal">
+    <div class="modal" style="max-width:420px;">
+      <div class="modal-header">
+        <h2>Nueva cuenta de bróker</h2>
+        <button class="close-btn" id="close-new-account-modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="new-account-form">
+          <div class="field">
+            <label>Nombre de la cuenta</label>
+            <input type="text" id="new-account-name" placeholder="Ej. Binance demo" required />
+          </div>
+          <div class="field">
+            <label>Capital inicial</label>
+            <input type="number" id="new-account-capital" step="0.01" placeholder="0.00" required />
+          </div>
+          <p class="auth-error" id="new-account-error" hidden></p>
+          <button type="submit">Añadir cuenta</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="layout hidden" id="app-layout">
+
+    <!-- Menú lateral -->
+    <nav class="sidebar">
+      <a class="sidebar-title" href="index.html">Tradeflow</a>
+      <button class="nav-item active" data-page="calendar">
+        <span class="nav-icon">🗓️</span> Calendario
+      </button>
+      <button class="nav-item" data-page="stats">
+        <span class="nav-icon">📊</span> Estadísticas
+      </button>
+
+      <div class="sidebar-section-label">Cuenta de bróker</div>
+      <div class="account-switcher" style="margin-bottom: 8px;">
+        <select id="account-select-sidebar" class="account-select" style="flex: 1;"></select>
+        <button type="button" class="nav-btn" id="delete-account-btn-sidebar" title="Eliminar cuenta de bróker"
+          style="padding: 4px 8px; font-size: 11px; line-height: 1; flex-shrink: 0;">🗑️</button>
+      </div>
+      <button class="nav-item" id="add-account-btn-sidebar">
+        <span class="nav-icon">➕</span> Añadir cuenta
+      </button>
+
+      <div class="sidebar-spacer"></div>
+
+      <button type="button" class="nav-item" id="export-btn">
+        <span class="nav-icon">⬇️</span> Exportar datos
+      </button>
+      <button type="button" class="nav-item" id="import-btn">
+        <span class="nav-icon">⬆️</span> Importar datos
+      </button>
+      <input type="file" id="import-input" accept="application/json" hidden />
+      <p class="sidebar-note">Tus datos se guardan solo en este navegador.</p>
+    </nav>
+
+    <main class="content">
+
+      <!-- ---------- Página: Calendario ---------- -->
+      <div class="page" id="page-calendar">
+        <header class="page-header">
+          <h2>Calendario</h2>
+
+          <div class="account-switcher">
+            <select id="account-select-top" class="account-select"></select>
+            <button type="button" class="nav-btn" id="add-account-btn-top" title="Añadir cuenta de bróker">+ Cuenta</button>
+            <button type="button" class="nav-btn" id="delete-account-btn-top" title="Eliminar cuenta de bróker">🗑️</button>
+          </div>
+
+          <div class="month-nav">
+            <button id="prev-month" class="nav-btn">‹</button>
+            <span id="month-label">—</span>
+            <button id="next-month" class="nav-btn">›</button>
+            <button id="today-btn" class="today-btn">Hoy</button>
+          </div>
+        </header>
+
+        <section class="summary" id="summary">
+          <div class="stat">
+            <span class="stat-label">Balance</span>
+            <span class="stat-value" id="stat-balance">$0.00</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">P&amp;L Total</span>
+            <span class="stat-value" id="stat-pnl">$0.00</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Operaciones</span>
+            <span class="stat-value" id="stat-count">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Win Rate</span>
+            <span class="stat-value" id="stat-winrate">0%</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Profit Factor</span>
+            <span class="stat-value" id="stat-pf">0.00</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Ganancia prom.</span>
+            <span class="stat-value" id="stat-avgwin">$0.00</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Pérdida prom.</span>
+            <span class="stat-value" id="stat-avgloss">$0.00</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Mejor op.</span>
+            <span class="stat-value" id="stat-best">$0.00</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Peor op.</span>
+            <span class="stat-value" id="stat-worst">$0.00</span>
+          </div>
+        </section>
+
+        <section class="calendar-section">
+          <div class="weekday-row">
+            <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+          </div>
+          <div class="calendar-grid" id="calendar-grid"></div>
+        </section>
+      </div>
+
+      <!-- ---------- Página: Estadísticas ---------- -->
+      <div class="page hidden" id="page-stats">
+        <header class="page-header">
+          <h2>Estadísticas</h2>
+        </header>
+
+        <section class="summary" id="stats-summary">
+          <div class="stat">
+            <span class="stat-label">Balance</span>
+            <span class="stat-value" id="stat2-balance">$0.00</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">P&amp;L Total</span>
+            <span class="stat-value" id="stat2-pnl">$0.00</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Operaciones</span>
+            <span class="stat-value" id="stat2-count">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Win Rate</span>
+            <span class="stat-value" id="stat2-winrate">0%</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Profit Factor</span>
+            <span class="stat-value" id="stat2-pf">0.00</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Expectativa / op.</span>
+            <span class="stat-value" id="stat2-expectancy">$0.00</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Ganancia prom.</span>
+            <span class="stat-value" id="stat2-avgwin">$0.00</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Pérdida prom.</span>
+            <span class="stat-value" id="stat2-avgloss">$0.00</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Mejor op.</span>
+            <span class="stat-value" id="stat2-best">$0.00</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Peor op.</span>
+            <span class="stat-value" id="stat2-worst">$0.00</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Racha ganadora máx.</span>
+            <span class="stat-value" id="stat2-winstreak">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Racha perdedora máx.</span>
+            <span class="stat-value" id="stat2-lossstreak">0</span>
+          </div>
+        </section>
+
+        <section class="charts-grid">
+          <div class="chart-card">
+            <h3>Curva de capital (P&amp;L acumulado)</h3>
+            <div class="chart-wrap"><canvas id="chart-equity"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h3>Ganadoras vs perdedoras</h3>
+            <div class="chart-wrap"><canvas id="chart-winloss"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h3>P&amp;L por símbolo</h3>
+            <div class="chart-wrap"><canvas id="chart-symbol"></canvas></div>
+          </div>
+          <div class="chart-card">
+            <h3>P&amp;L por día de la semana</h3>
+            <div class="chart-wrap"><canvas id="chart-weekday"></canvas></div>
+          </div>
+        </section>
+
+        <p class="empty-hint" id="stats-empty-hint">Todavía no hay operaciones registradas</p>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Modal de día: operaciones existentes + formulario para añadir -->
+  <div class="modal-overlay" id="day-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modal-date-label">Fecha</h2>
+        <button class="close-btn" id="close-modal">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div id="day-summary" class="day-summary"></div>
+        <div class="day-trades" id="day-trades-list"></div>
+
+        <h3 class="section-title">Nueva operación</h3>
+        <form id="trade-form">
+          <div class="form-row" id="trade-fields-container"></div>
+
+          <div class="field field-wide">
+            <label>Capturas</label>
+            <div class="screenshot-drop" id="screenshot-drop">
+              <p>Arrastra imágenes aquí, pégalas (Ctrl+V) o haz clic para seleccionar</p>
+              <input type="file" id="screenshot-input" accept="image/*" multiple hidden />
+            </div>
+            <div class="screenshot-thumbs" id="screenshot-thumbs"></div>
+          </div>
+
+          <button type="submit" class="btn-submit">Agregar operación</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lightbox para ver capturas en grande -->
+  <div class="lightbox-overlay" id="lightbox">
+    <img id="lightbox-img" src="" alt="Captura" />
+  </div>
+
+<script>
+/* =========================================================================
+   TRADE_FIELDS — misma idea que en la app de escritorio: el formulario del
+   modal se genera a partir de este array.
+   ========================================================================= */
+const TRADE_FIELDS = [
+  { id: 'symbol', label: 'Símbolo', type: 'text', required: true, placeholder: 'AAPL' },
+  { id: 'direction', label: 'Dirección', type: 'select', required: true, options: [
+      { value: 'long', label: 'Long' },
+      { value: 'short', label: 'Short' }
+    ]
+  },
+  { id: 'entry', label: 'Precio entrada', type: 'number', step: '0.01', required: true },
+  { id: 'exit', label: 'Precio salida', type: 'number', step: '0.01', required: true },
+  { id: 'quantity', label: 'Cantidad', type: 'number', step: '0.01', required: true },
+  { id: 'strategy', label: 'Estrategia / Setup', type: 'text', placeholder: 'Ruptura, pullback...' },
+  { id: 'notes', label: 'Notas', type: 'textarea', placeholder: 'Motivo de entrada/salida, lecciones...' }
+];
+
+const MONTH_NAMES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // lunes...domingo
+const WEEKDAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const CHART_COLORS = { green: '#29d98c', red: '#ff5c72', blue: '#4f7cff', grid: '#242833', text: '#8a92a3', cardBg: '#12151b' };
+
+const ACCOUNTS_KEY = 'tf_accounts';
+const ACTIVE_ACCOUNT_KEY = 'tf_active_account';
+const tradesKey = (accountId) => `tf_trades_${accountId}`;
+
+let allTrades = [];
+let brokerAccounts = [];
+let activeAccountId = null;
+let viewYear, viewMonth, selectedDate = null, pendingScreenshots = [], currentPage = 'calendar';
+
+const today = new Date();
+viewYear = today.getFullYear();
+viewMonth = today.getMonth();
+
+/* ---------- Persistencia (localStorage en vez del servidor local) ---------- */
+
+function loadAccounts() {
+  try { return JSON.parse(localStorage.getItem(ACCOUNTS_KEY)) || []; }
+  catch { return []; }
+}
+function saveAccounts() { localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(brokerAccounts)); }
+
+function loadTradesForActiveAccount() {
+  try { allTrades = JSON.parse(localStorage.getItem(tradesKey(activeAccountId))) || []; }
+  catch { allTrades = []; }
+}
+function saveTrades() { localStorage.setItem(tradesKey(activeAccountId), JSON.stringify(allTrades)); }
+
+/* ---------- Helpers ---------- */
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+function dateKey(y, m, d) { return `${y}-${pad2(m + 1)}-${pad2(d)}`; }
+
+function calcPnl(trade) {
+  const diff = trade.direction === 'long' ? (trade.exit - trade.entry) : (trade.entry - trade.exit);
+  return diff * trade.quantity;
+}
+function formatMoney(n) {
+  const sign = n < 0 ? '-' : '';
+  return `${sign}$${Math.abs(n).toFixed(2)}`;
+}
+function activeAccount() { return brokerAccounts.find(a => a.id === activeAccountId) || null; }
+function currentInitialCapital() { const acc = activeAccount(); return acc ? acc.initialCapital : 0; }
+function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str ?? ''; return div.innerHTML; }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+/* ---------- Ratios / estadísticas de la página Calendario ---------- */
+
+function renderStats(trades) {
+  const pnls = trades.map(calcPnl);
+  const total = pnls.reduce((a, b) => a + b, 0);
+  const wins = pnls.filter(p => p > 0);
+  const losses = pnls.filter(p => p < 0);
+  const winRate = trades.length ? (wins.length / trades.length) * 100 : 0;
+  const avgWin = wins.length ? wins.reduce((a, b) => a + b, 0) / wins.length : 0;
+  const avgLoss = losses.length ? losses.reduce((a, b) => a + b, 0) / losses.length : 0;
+  const grossWin = wins.reduce((a, b) => a + b, 0);
+  const grossLoss = Math.abs(losses.reduce((a, b) => a + b, 0));
+  const profitFactor = grossLoss > 0 ? grossWin / grossLoss : (grossWin > 0 ? Infinity : 0);
+  const best = pnls.length ? Math.max(...pnls) : 0;
+  const worst = pnls.length ? Math.min(...pnls) : 0;
+
+  const setStat = (id, value, colorize) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = value;
+    if (colorize !== undefined) {
+      el.className = 'stat-value ' + (colorize > 0 ? 'pnl-positive' : colorize < 0 ? 'pnl-negative' : 'pnl-neutral');
+    }
+  };
+
+  const balance = currentInitialCapital() + total;
+  setStat('stat-balance', formatMoney(balance), total);
+  setStat('stat-pnl', formatMoney(total), total);
+  setStat('stat-count', trades.length);
+  setStat('stat-winrate', winRate.toFixed(1) + '%');
+  setStat('stat-pf', profitFactor === Infinity ? '∞' : profitFactor.toFixed(2));
+  setStat('stat-avgwin', formatMoney(avgWin), avgWin);
+  setStat('stat-avgloss', formatMoney(avgLoss), avgLoss);
+  setStat('stat-best', formatMoney(best), best);
+  setStat('stat-worst', formatMoney(worst), worst);
+}
+
+/* ---------- Navegación por páginas (sidebar) ---------- */
+
+function setupNav() {
+  document.querySelectorAll('.nav-item[data-page]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const page = btn.getAttribute('data-page');
+      currentPage = page;
+      document.querySelectorAll('.nav-item[data-page]').forEach(b => b.classList.toggle('active', b === btn));
+      document.getElementById('page-calendar').classList.toggle('hidden', page !== 'calendar');
+      document.getElementById('page-stats').classList.toggle('hidden', page !== 'stats');
+      if (page === 'stats') renderStatsPage();
+    });
+  });
+}
+
+function refreshAll() {
+  renderStats(allTrades);
+  renderCalendar();
+  if (currentPage === 'stats') renderStatsPage();
+}
+
+/* ---------- Calendario ---------- */
+
+function tradesForDate(dateStr) { return allTrades.filter(t => t.date === dateStr); }
+
+function renderCalendar() {
+  document.getElementById('month-label').textContent = `${MONTH_NAMES[viewMonth]} ${viewYear}`;
+  const grid = document.getElementById('calendar-grid');
+  grid.innerHTML = '';
+
+  const firstOfMonth = new Date(viewYear, viewMonth, 1);
+  const firstWeekdayIdx = WEEKDAY_ORDER.indexOf(firstOfMonth.getDay());
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
+
+  const cells = [];
+  for (let i = firstWeekdayIdx - 1; i >= 0; i--) cells.push({ day: daysInPrevMonth - i, otherMonth: true, y: viewYear, m: viewMonth - 1 });
+  for (let d = 1; d <= daysInMonth; d++) cells.push({ day: d, otherMonth: false, y: viewYear, m: viewMonth });
+  let nextDay = 1;
+  while (cells.length % 7 !== 0) cells.push({ day: nextDay++, otherMonth: true, y: viewYear, m: viewMonth + 1 });
+
+  for (const cell of cells) {
+    const normDate = new Date(cell.y, cell.m, cell.day);
+    const key = dateKey(normDate.getFullYear(), normDate.getMonth(), normDate.getDate());
+    const dayTrades = tradesForDate(key);
+    const dayPnl = dayTrades.reduce((sum, t) => sum + calcPnl(t), 0);
+
+    const div = document.createElement('div');
+    div.className = 'day-cell';
+    if (cell.otherMonth) div.classList.add('other-month');
+
+    const isToday = key === dateKey(today.getFullYear(), today.getMonth(), today.getDate());
+    if (isToday) div.classList.add('is-today');
+
+    if (dayTrades.length > 0) {
+      if (dayPnl > 0) div.classList.add('has-win');
+      else if (dayPnl < 0) div.classList.add('has-loss');
+      else div.classList.add('has-flat');
+    }
+
+    let pnlClass = 'pnl-positive';
+    if (dayPnl < 0) pnlClass = 'pnl-negative';
+    else if (dayPnl === 0 && dayTrades.length === 0) pnlClass = '';
+    else if (dayPnl === 0) pnlClass = 'pnl-neutral';
+
+    div.innerHTML = `
+      <span class="day-number">${cell.day}</span>
+      ${dayTrades.length ? `<span class="day-pnl ${pnlClass}">${formatMoney(dayPnl)}</span><span class="day-count">${dayTrades.length} op.</span>` : ''}
+    `;
+    div.addEventListener('click', () => openDayModal(key));
+    grid.appendChild(div);
+  }
+}
+
+document.getElementById('prev-month').addEventListener('click', () => {
+  viewMonth--; if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+  renderCalendar();
+});
+document.getElementById('next-month').addEventListener('click', () => {
+  viewMonth++; if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+  renderCalendar();
+});
+document.getElementById('today-btn').addEventListener('click', () => {
+  viewYear = today.getFullYear(); viewMonth = today.getMonth();
+  renderCalendar();
+});
+
+/* ---------- Formulario dinámico (a partir de TRADE_FIELDS) ---------- */
+
+function buildTradeFieldsForm() {
+  const container = document.getElementById('trade-fields-container');
+  container.innerHTML = TRADE_FIELDS.map(f => {
+    const wideClass = f.type === 'textarea' ? ' field-wide' : '';
+    let control;
+    if (f.type === 'select') {
+      control = `<select id="tf-${f.id}" ${f.required ? 'required' : ''}>` +
+        f.options.map(o => `<option value="${o.value}">${o.label}</option>`).join('') + `</select>`;
+    } else if (f.type === 'textarea') {
+      control = `<textarea id="tf-${f.id}" placeholder="${f.placeholder || ''}"></textarea>`;
+    } else {
+      control = `<input type="${f.type}" id="tf-${f.id}" ${f.step ? `step="${f.step}"` : ''} ${f.required ? 'required' : ''} placeholder="${f.placeholder || ''}" />`;
+    }
+    return `<div class="field${wideClass}"><label>${f.label}</label>${control}</div>`;
+  }).join('');
+}
+
+function readTradeFieldsForm() {
+  const trade = {};
+  for (const f of TRADE_FIELDS) {
+    const el = document.getElementById(`tf-${f.id}`);
+    let value = el.value;
+    if (f.type === 'number') value = parseFloat(value);
+    else if (f.type === 'text' || f.type === 'textarea') value = escapeHtml(value.trim());
+    trade[f.id] = value;
+  }
+  return trade;
+}
+
+/* ---------- Capturas (drag & drop, pegar, seleccionar) ---------- */
+
+const screenshotDrop = document.getElementById('screenshot-drop');
+const screenshotInput = document.getElementById('screenshot-input');
+const screenshotThumbs = document.getElementById('screenshot-thumbs');
+
+function renderScreenshotThumbs() {
+  screenshotThumbs.innerHTML = pendingScreenshots.map((src, i) => `
+    <div class="screenshot-thumb">
+      <img src="${src}" />
+      <button type="button" class="remove-thumb" data-i="${i}">✕</button>
+    </div>
+  `).join('');
+  screenshotThumbs.querySelectorAll('.remove-thumb').forEach(btn => {
+    btn.addEventListener('click', () => {
+      pendingScreenshots.splice(Number(btn.dataset.i), 1);
+      renderScreenshotThumbs();
+    });
+  });
+}
+
+function addScreenshotFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = () => { pendingScreenshots.push(reader.result); renderScreenshotThumbs(); };
+  reader.readAsDataURL(file);
+}
+
+screenshotDrop.addEventListener('click', () => screenshotInput.click());
+screenshotInput.addEventListener('change', (e) => { [...e.target.files].forEach(addScreenshotFile); screenshotInput.value = ''; });
+screenshotDrop.addEventListener('dragover', (e) => { e.preventDefault(); screenshotDrop.classList.add('drag-over'); });
+screenshotDrop.addEventListener('dragleave', () => screenshotDrop.classList.remove('drag-over'));
+screenshotDrop.addEventListener('drop', (e) => {
+  e.preventDefault(); screenshotDrop.classList.remove('drag-over');
+  [...e.dataTransfer.files].forEach(addScreenshotFile);
+});
+document.addEventListener('paste', (e) => {
+  if (!document.getElementById('day-modal').classList.contains('open')) return;
+  [...(e.clipboardData?.items || [])].forEach(item => {
+    if (item.type.startsWith('image/')) addScreenshotFile(item.getAsFile());
+  });
+});
+
+/* ---------- Modal de día ---------- */
+
+const dayModal = document.getElementById('day-modal');
+
+function openDayModal(dateStr) {
+  selectedDate = dateStr;
+  pendingScreenshots = [];
+  renderScreenshotThumbs();
+  document.getElementById('trade-form').reset();
+
+  const d = new Date(dateStr + 'T00:00:00');
+  document.getElementById('modal-date-label').textContent =
+    d.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  renderDaySummaryAndTrades();
+  buildTradeFieldsForm();
+  dayModal.classList.add('open');
+}
+
+function closeDayModal() { dayModal.classList.remove('open'); }
+document.getElementById('close-modal').addEventListener('click', closeDayModal);
+dayModal.addEventListener('click', (e) => { if (e.target.id === 'day-modal') closeDayModal(); });
+
+function renderDaySummaryAndTrades() {
+  const dayTrades = tradesForDate(selectedDate);
+  const dayPnl = dayTrades.reduce((s, t) => s + calcPnl(t), 0);
+
+  document.getElementById('day-summary').innerHTML = `
+    <span>Operaciones: <strong>${dayTrades.length}</strong></span>
+    <span>P&amp;L del día: <strong class="${dayPnl >= 0 ? 'pnl-positive' : 'pnl-negative'}">${formatMoney(dayPnl)}</strong></span>
+  `;
+
+  const list = document.getElementById('day-trades-list');
+  if (dayTrades.length === 0) {
+    list.innerHTML = '';
+  } else {
+    list.innerHTML = dayTrades.map(t => {
+      const pnl = calcPnl(t);
+      const thumbs = (t.screenshots || []).map(src => `<img src="${src}" data-full="${src}" />`).join('');
+      return `
+        <div class="trade-card" data-id="${t.id}">
+          <div class="trade-card-top">
+            <span class="trade-symbol">${(t.symbol || '').toUpperCase()}</span>
+            <span class="trade-dir">${t.direction === 'long' ? 'Long' : 'Short'}</span>
+            <span class="${pnl >= 0 ? 'pnl-positive' : 'pnl-negative'}">${formatMoney(pnl)}</span>
+            <button class="delete-btn" data-id="${t.id}">✕</button>
+          </div>
+          <div class="trade-meta">Entrada ${t.entry} · Salida ${t.exit} · Cant. ${t.quantity}${t.strategy ? ' · ' + t.strategy : ''}</div>
+          ${t.notes ? `<div class="trade-notes">${t.notes}</div>` : ''}
+          ${thumbs ? `<div class="trade-thumbs">${thumbs}</div>` : ''}
+        </div>
+      `;
+    }).join('');
+
+    list.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        allTrades = allTrades.filter(t => t.id !== btn.dataset.id);
+        saveTrades();
+        renderDaySummaryAndTrades();
+        refreshAll();
+      });
+    });
+    list.querySelectorAll('.trade-thumbs img').forEach(img => {
+      img.addEventListener('click', () => openLightbox(img.dataset.full));
+    });
+  }
+}
+
+document.getElementById('trade-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const fields = readTradeFieldsForm();
+  const trade = { id: uid(), date: selectedDate, screenshots: pendingScreenshots.slice(), ...fields };
+  allTrades.push(trade);
+  saveTrades();
+  pendingScreenshots = [];
+  renderScreenshotThumbs();
+  document.getElementById('trade-form').reset();
+  renderDaySummaryAndTrades();
+  refreshAll();
+});
+
+/* ---------- Lightbox ---------- */
+
+const lightbox = document.getElementById('lightbox');
+function openLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  lightbox.classList.add('open');
+}
+lightbox.addEventListener('click', () => lightbox.classList.remove('open'));
+
+/* ---------- Estadísticas ampliadas + gráficas (canvas nativo) ---------- */
+
+function computeExtendedMetrics(trades) {
+  const sorted = [...trades].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const pnls = sorted.map(calcPnl);
+  const total = pnls.reduce((a, b) => a + b, 0);
+  const wins = pnls.filter(p => p > 0);
+  const losses = pnls.filter(p => p < 0);
+  const winRate = trades.length ? wins.length / trades.length : 0;
+  const avgWin = wins.length ? wins.reduce((a, b) => a + b, 0) / wins.length : 0;
+  const avgLoss = losses.length ? losses.reduce((a, b) => a + b, 0) / losses.length : 0;
+  const grossWin = wins.reduce((a, b) => a + b, 0);
+  const grossLoss = Math.abs(losses.reduce((a, b) => a + b, 0));
+  const profitFactor = grossLoss > 0 ? grossWin / grossLoss : (grossWin > 0 ? Infinity : 0);
+  const best = pnls.length ? Math.max(...pnls) : 0;
+  const worst = pnls.length ? Math.min(...pnls) : 0;
+  const expectancy = (winRate * avgWin) + ((1 - winRate) * avgLoss);
+
+  let maxWinStreak = 0, maxLossStreak = 0, curWinStreak = 0, curLossStreak = 0;
+  for (const p of pnls) {
+    if (p > 0) { curWinStreak++; curLossStreak = 0; }
+    else if (p < 0) { curLossStreak++; curWinStreak = 0; }
+    else { curWinStreak = 0; curLossStreak = 0; }
+    maxWinStreak = Math.max(maxWinStreak, curWinStreak);
+    maxLossStreak = Math.max(maxLossStreak, curLossStreak);
+  }
+  return { sorted, pnls, total, count: trades.length, winRate, avgWin, avgLoss, profitFactor, best, worst, expectancy, maxWinStreak, maxLossStreak };
+}
+
+function renderStatsCards(m) {
+  const setStat = (id, value, colorize) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = value;
+    if (colorize !== undefined) el.className = 'stat-value ' + (colorize > 0 ? 'pnl-positive' : colorize < 0 ? 'pnl-negative' : 'pnl-neutral');
+  };
+  const balance = currentInitialCapital() + m.total;
+  setStat('stat2-balance', formatMoney(balance), m.total);
+  setStat('stat2-pnl', formatMoney(m.total), m.total);
+  setStat('stat2-count', m.count);
+  setStat('stat2-winrate', (m.winRate * 100).toFixed(1) + '%');
+  setStat('stat2-pf', m.profitFactor === Infinity ? '∞' : m.profitFactor.toFixed(2));
+  setStat('stat2-expectancy', formatMoney(m.expectancy), m.expectancy);
+  setStat('stat2-avgwin', formatMoney(m.avgWin), m.avgWin);
+  setStat('stat2-avgloss', formatMoney(m.avgLoss), m.avgLoss);
+  setStat('stat2-best', formatMoney(m.best), m.best);
+  setStat('stat2-worst', formatMoney(m.worst), m.worst);
+  setStat('stat2-winstreak', m.maxWinStreak);
+  setStat('stat2-lossstreak', m.maxLossStreak);
+}
+
+function buildEquityData(sorted, initialCapital) {
+  let cumulative = initialCapital || 0;
+  const labels = ['Inicio'], data = [cumulative];
+  for (const trade of sorted) { cumulative += calcPnl(trade); labels.push(trade.date); data.push(cumulative); }
+  return { labels, data };
+}
+function buildSymbolData(trades) {
+  const bySymbol = {};
+  for (const trade of trades) { const key = (trade.symbol || '—').toUpperCase(); bySymbol[key] = (bySymbol[key] || 0) + calcPnl(trade); }
+  const labels = Object.keys(bySymbol);
+  return { labels, data: labels.map(k => bySymbol[k]) };
+}
+function buildWeekdayData(trades) {
+  const totals = [0, 0, 0, 0, 0, 0, 0];
+  for (const trade of trades) {
+    const d = new Date(trade.date + 'T00:00:00');
+    const jsDay = d.getDay();
+    const idx = jsDay === 0 ? 6 : jsDay - 1;
+    totals[idx] += calcPnl(trade);
+  }
+  return { labels: WEEKDAY_LABELS, data: totals };
+}
+
+function setupCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const width = Math.max(rect.width, 50), height = Math.max(rect.height, 50);
+  canvas.width = width * dpr; canvas.height = height * dpr;
+  canvas.style.width = width + 'px'; canvas.style.height = height + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+  return { ctx, width, height };
+}
+
+function drawLineChart(canvas, labels, data) {
+  const { ctx, width, height } = setupCanvas(canvas);
+  if (!data.length) return;
+  const padding = { top: 10, right: 12, bottom: 22, left: 56 };
+  const chartW = width - padding.left - padding.right, chartH = height - padding.top - padding.bottom;
+  const minV = Math.min(...data, 0), maxV = Math.max(...data, 0);
+  const range = (maxV - minV) || 1;
+  const xStep = data.length > 1 ? chartW / (data.length - 1) : 0;
+  const xFor = i => padding.left + i * xStep;
+  const yFor = v => padding.top + chartH - ((v - minV) / range) * chartH;
+
+  ctx.strokeStyle = CHART_COLORS.grid; ctx.fillStyle = CHART_COLORS.text; ctx.font = '10px sans-serif'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const v = minV + (range * i / 4), y = yFor(v);
+    ctx.beginPath(); ctx.moveTo(padding.left, y); ctx.lineTo(width - padding.right, y); ctx.stroke();
+    ctx.fillText(formatMoney(v), 2, y + 3);
+  }
+  ctx.beginPath();
+  data.forEach((v, i) => { const x = xFor(i), y = yFor(v); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+  ctx.lineTo(xFor(data.length - 1), padding.top + chartH); ctx.lineTo(xFor(0), padding.top + chartH); ctx.closePath();
+  ctx.fillStyle = 'rgba(79, 124, 255, 0.15)'; ctx.fill();
+
+  ctx.beginPath();
+  data.forEach((v, i) => { const x = xFor(i), y = yFor(v); if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); });
+  ctx.strokeStyle = CHART_COLORS.blue; ctx.lineWidth = 2; ctx.stroke();
+
+  ctx.fillStyle = CHART_COLORS.blue;
+  data.forEach((v, i) => { ctx.beginPath(); ctx.arc(xFor(i), yFor(v), 2.5, 0, Math.PI * 2); ctx.fill(); });
+
+  ctx.fillStyle = CHART_COLORS.text; ctx.font = '10px sans-serif';
+  const showIdx = [...new Set([0, Math.floor((data.length - 1) / 2), data.length - 1])];
+  showIdx.forEach(i => {
+    const label = labels[i], textW = ctx.measureText(label).width;
+    ctx.fillText(label, Math.min(Math.max(xFor(i) - textW / 2, 0), width - textW), height - 6);
+  });
+}
+
+function drawBarChart(canvas, labels, data) {
+  const { ctx, width, height } = setupCanvas(canvas);
+  if (!data.length) return;
+  const padding = { top: 10, right: 12, bottom: 22, left: 56 };
+  const chartW = width - padding.left - padding.right, chartH = height - padding.top - padding.bottom;
+  const minV = Math.min(...data, 0), maxV = Math.max(...data, 0);
+  const range = (maxV - minV) || 1;
+  const yFor = v => padding.top + chartH - ((v - minV) / range) * chartH;
+  const y0 = yFor(0);
+
+  ctx.strokeStyle = CHART_COLORS.grid; ctx.fillStyle = CHART_COLORS.text; ctx.font = '10px sans-serif';
+  for (let i = 0; i <= 4; i++) {
+    const v = minV + (range * i / 4), y = yFor(v);
+    ctx.beginPath(); ctx.moveTo(padding.left, y); ctx.lineTo(width - padding.right, y); ctx.stroke();
+    ctx.fillText(formatMoney(v), 2, y + 3);
+  }
+  const barSlot = chartW / data.length, barWidth = Math.min(40, barSlot * 0.55);
+  data.forEach((v, i) => {
+    const xCenter = padding.left + barSlot * i + barSlot / 2;
+    const barTop = Math.min(y0, yFor(v)), barH = Math.max(Math.abs(yFor(v) - y0), 1);
+    ctx.fillStyle = v >= 0 ? CHART_COLORS.green : CHART_COLORS.red;
+    ctx.fillRect(xCenter - barWidth / 2, barTop, barWidth, barH);
+    ctx.fillStyle = CHART_COLORS.text; ctx.font = '10px sans-serif';
+    const label = String(labels[i]), textW = ctx.measureText(label).width;
+    ctx.fillText(label, xCenter - textW / 2, height - 6);
+  });
+}
+
+function drawDonutChart(canvas, labels, data, colors) {
+  const { ctx, width, height } = setupCanvas(canvas);
+  const total = data.reduce((a, b) => a + b, 0);
+  const cx = width / 2, cy = (height - 26) / 2 + 8;
+  const radius = Math.max(Math.min(cx, cy) - 8, 10), innerRadius = radius * 0.6;
+
+  if (total === 0) {
+    ctx.fillStyle = CHART_COLORS.text; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Sin datos', cx, cy); ctx.textAlign = 'left';
+    return;
+  }
+  let startAngle = -Math.PI / 2;
+  data.forEach((v, i) => {
+    if (v <= 0) return;
+    const angle = (v / total) * Math.PI * 2;
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, radius, startAngle, startAngle + angle); ctx.closePath();
+    ctx.fillStyle = colors[i]; ctx.fill();
+    startAngle += angle;
+  });
+  ctx.beginPath(); ctx.arc(cx, cy, innerRadius, 0, Math.PI * 2); ctx.fillStyle = CHART_COLORS.cardBg; ctx.fill();
+
+  const legendY = height - 10; let legendX = 8;
+  ctx.font = '10px sans-serif';
+  labels.forEach((label, i) => {
+    ctx.fillStyle = colors[i]; ctx.fillRect(legendX, legendY - 8, 8, 8);
+    ctx.fillStyle = CHART_COLORS.text;
+    const text = `${label} (${data[i]})`;
+    ctx.fillText(text, legendX + 12, legendY);
+    legendX += ctx.measureText(text).width + 22;
+  });
+}
+
+function buildCharts(trades, m) {
+  const capital = currentInitialCapital();
+  const equity = buildEquityData(m.sorted, capital);
+  const bySymbol = buildSymbolData(trades);
+  const byWeekday = buildWeekdayData(trades);
+  const winCount = m.pnls.filter(p => p > 0).length;
+  const lossCount = m.pnls.filter(p => p < 0).length;
+  const flatCount = m.pnls.filter(p => p === 0).length;
+
+  drawLineChart(document.getElementById('chart-equity'), equity.labels, equity.data);
+  drawBarChart(document.getElementById('chart-symbol'), bySymbol.labels, bySymbol.data);
+  drawDonutChart(document.getElementById('chart-winloss'), ['Ganadoras', 'Perdedoras', 'Breakeven'], [winCount, lossCount, flatCount], [CHART_COLORS.green, CHART_COLORS.red, CHART_COLORS.blue]);
+  drawBarChart(document.getElementById('chart-weekday'), byWeekday.labels, byWeekday.data);
+}
+
+function renderStatsPage() {
+  const trades = allTrades;
+  const hint = document.getElementById('stats-empty-hint');
+  const summary = document.getElementById('stats-summary');
+  const chartsGrid = document.querySelector('.charts-grid');
+
+  if (trades.length === 0) {
+    hint.classList.remove('hidden'); summary.style.display = 'none'; chartsGrid.style.display = 'none';
+    return;
+  }
+  hint.classList.add('hidden'); summary.style.display = ''; chartsGrid.style.display = '';
+  const m = computeExtendedMetrics(trades);
+  renderStatsCards(m);
+  buildCharts(trades, m);
+}
+
+window.addEventListener('resize', () => { if (currentPage === 'stats' && allTrades.length > 0) renderStatsPage(); });
+
+/* ---------- Cuentas de bróker ---------- */
+
+const accountSelectSidebar = document.getElementById('account-select-sidebar');
+const accountSelectTop = document.getElementById('account-select-top');
+
+function renderAccountSelectors() {
+  const options = brokerAccounts.map(a => `<option value="${a.id}">${a.name} (${formatMoney(a.initialCapital)})</option>`).join('');
+  accountSelectSidebar.innerHTML = options;
+  accountSelectTop.innerHTML = options;
+  accountSelectSidebar.value = activeAccountId;
+  accountSelectTop.value = activeAccountId;
+}
+
+function switchAccount(accountId) {
+  if (accountId === activeAccountId) return;
+  activeAccountId = accountId;
+  localStorage.setItem(ACTIVE_ACCOUNT_KEY, activeAccountId);
+  renderAccountSelectors();
+  loadTradesForActiveAccount();
+  refreshAll();
+}
+accountSelectSidebar.addEventListener('change', (e) => switchAccount(e.target.value));
+accountSelectTop.addEventListener('change', (e) => switchAccount(e.target.value));
+
+const newAccountModal = document.getElementById('new-account-modal');
+const newAccountForm = document.getElementById('new-account-form');
+const newAccountError = document.getElementById('new-account-error');
+
+function openNewAccountModal() { newAccountForm.reset(); newAccountError.hidden = true; newAccountModal.classList.add('open'); }
+function closeNewAccountModal() { newAccountModal.classList.remove('open'); }
+
+document.getElementById('add-account-btn-sidebar').addEventListener('click', openNewAccountModal);
+document.getElementById('add-account-btn-top').addEventListener('click', openNewAccountModal);
+document.getElementById('close-new-account-modal').addEventListener('click', closeNewAccountModal);
+newAccountModal.addEventListener('click', (e) => { if (e.target.id === 'new-account-modal') closeNewAccountModal(); });
+
+newAccountForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  newAccountError.hidden = true;
+  const name = document.getElementById('new-account-name').value.trim();
+  const initialCapital = parseFloat(document.getElementById('new-account-capital').value) || 0;
+  if (!name) { newAccountError.textContent = 'Ponle un nombre a la cuenta.'; newAccountError.hidden = false; return; }
+
+  const account = { id: uid(), name: escapeHtml(name), initialCapital };
+  brokerAccounts.push(account);
+  saveAccounts();
+  activeAccountId = account.id;
+  localStorage.setItem(ACTIVE_ACCOUNT_KEY, activeAccountId);
+  closeNewAccountModal();
+  renderAccountSelectors();
+  loadTradesForActiveAccount();
+  refreshAll();
+});
+
+function deleteAccount(accountId) {
+  const account = brokerAccounts.find(a => a.id === accountId);
+  if (!account) return;
+  const confirmed = confirm(`¿Eliminar la cuenta "${account.name}" y todas sus operaciones? Esta acción no se puede deshacer.`);
+  if (!confirmed) return;
+
+  localStorage.removeItem(tradesKey(accountId));
+  brokerAccounts = brokerAccounts.filter(a => a.id !== accountId);
+  saveAccounts();
+
+  if (brokerAccounts.length === 0) {
+    activeAccountId = null;
+    allTrades = [];
+    document.getElementById('app-layout').classList.add('hidden');
+    document.getElementById('onboarding-overlay').classList.remove('hidden');
+    return;
+  }
+  if (activeAccountId === accountId) {
+    activeAccountId = brokerAccounts[0].id;
+    localStorage.setItem(ACTIVE_ACCOUNT_KEY, activeAccountId);
+    renderAccountSelectors();
+    loadTradesForActiveAccount();
+    refreshAll();
+  } else {
+    renderAccountSelectors();
+  }
+}
+document.getElementById('delete-account-btn-sidebar').addEventListener('click', () => deleteAccount(activeAccountId));
+document.getElementById('delete-account-btn-top').addEventListener('click', () => deleteAccount(activeAccountId));
+
+/* ---------- Exportar / Importar (copia de seguridad manual) ---------- */
+
+document.getElementById('export-btn').addEventListener('click', () => {
+  const payload = { accounts: brokerAccounts, trades: {} };
+  brokerAccounts.forEach(a => { payload.trades[a.id] = JSON.parse(localStorage.getItem(tradesKey(a.id)) || '[]'); });
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `tradeflow-${new Date().toISOString().slice(0, 10)}.json`; a.click();
+  URL.revokeObjectURL(url);
+});
+
+const importInput = document.getElementById('import-input');
+document.getElementById('import-btn').addEventListener('click', () => importInput.click());
+importInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const payload = JSON.parse(reader.result);
+      if (!Array.isArray(payload.accounts)) throw new Error('Formato inválido');
+      brokerAccounts = payload.accounts;
+      saveAccounts();
+      Object.entries(payload.trades || {}).forEach(([accId, trades]) => {
+        localStorage.setItem(tradesKey(accId), JSON.stringify(trades));
+      });
+      activeAccountId = brokerAccounts[0]?.id || null;
+      if (activeAccountId) localStorage.setItem(ACTIVE_ACCOUNT_KEY, activeAccountId);
+      enterApp();
+      alert('Datos importados correctamente.');
+    } catch (err) {
+      alert('No se pudo importar el archivo: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+  importInput.value = '';
+});
+
+/* ---------- Onboarding: crear la primera cuenta ---------- */
+
+const onboardingOverlay = document.getElementById('onboarding-overlay');
+const onboardingForm = document.getElementById('onboarding-form');
+const onboardingError = document.getElementById('onboarding-error');
+
+onboardingForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  onboardingError.hidden = true;
+  const name = document.getElementById('onboarding-name').value.trim();
+  const initialCapital = parseFloat(document.getElementById('onboarding-capital').value) || 0;
+  if (!name) { onboardingError.textContent = 'Ponle un nombre a la cuenta.'; onboardingError.hidden = false; return; }
+
+  const account = { id: uid(), name: escapeHtml(name), initialCapital };
+  brokerAccounts = [account];
+  saveAccounts();
+  activeAccountId = account.id;
+  localStorage.setItem(ACTIVE_ACCOUNT_KEY, activeAccountId);
+  onboardingOverlay.classList.add('hidden');
+  enterApp();
+});
+
+/* ---------- Arranque ---------- */
+
+function enterApp() {
+  document.getElementById('app-layout').classList.remove('hidden');
+  renderAccountSelectors();
+  loadTradesForActiveAccount();
+  renderStats(allTrades);
+  renderCalendar();
+  if (currentPage === 'stats') renderStatsPage();
+}
+
+setupNav();
+brokerAccounts = loadAccounts();
+if (brokerAccounts.length === 0) {
+  onboardingOverlay.classList.remove('hidden');
+} else {
+  activeAccountId = localStorage.getItem(ACTIVE_ACCOUNT_KEY) || brokerAccounts[0].id;
+  if (!brokerAccounts.some(a => a.id === activeAccountId)) activeAccountId = brokerAccounts[0].id;
+  enterApp();
+}
+</script>
+</body>
+</html>
